@@ -58,14 +58,14 @@ func untar(file string, dst string, subdir string, prefix string) error {
 
 		// Skip directories
 		if header.Typeflag == tar.TypeDir {
-			if err := os.MkdirAll(target, 0755); err != nil {
+			if err := os.MkdirAll(target, os.ModePerm); err != nil {
 				return err
 			}
 			continue
 		}
 
 		// Create the parent directories if needed
-		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
 			return err
 		}
 

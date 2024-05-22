@@ -3,6 +3,7 @@ package degit
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var base = homeOrTmp()
@@ -41,7 +43,7 @@ func (r *Repo) Clone(dst string, force bool) error {
 				return err
 			}
 		} else {
-			return fmt.Errorf("%s already exists", dst)
+			return fmt.Errorf("output location %s already exists, use --force to overwrite", dst)
 		}
 	}
 
@@ -73,6 +75,10 @@ func (r *Repo) Clone(dst string, force bool) error {
 		}
 	}
 
+	if err := updateCache(filepath.Dir(file), r.Ref, hash); err != nil {
+		return err
+	}
+
 	err = os.MkdirAll(dst, os.ModePerm)
 	if err != nil {
 		return err
@@ -101,6 +107,12 @@ func (r *Repo) download(dst string, hash string) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("could not find repository %s", r.URL)
+	}
+	if resp.StatusCode != 200 {
+		return r.download(dst, resp.Header.Values("Location")[0])
 	}
 	defer resp.Body.Close()
 
@@ -199,6 +211,123 @@ func (r *Repo) getRefs() ([]*ref, error) {
 	}
 
 	return result, err
+}
+
+func updateCache(dir string, ref string, hash string) error {
+	if err := updateAccessLog(dir, ref); err != nil {
+		return err
+	}
+
+	if err := updateHashLog(dir, ref, hash); err != nil {
+		return err
+	}
+	return nil
+}
+
+var accessLogName = "access.json"
+
+func updateAccessLog(dir string, ref string) error {
+	path := path.Join(dir, accessLogName)
+
+	// Open the file with read-write permissions, create if it doesn't exist
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var data map[string]any = make(map[string]any)
+
+	// Read the existing contents if the file is not empty
+	s, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+
+	if len(s) != 0 {
+		err = json.Unmarshal(s, &data)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Update the data with the new reference and timestamp
+	data[ref] = time.Now()
+	s, err = json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	// Truncate the file to ensure it's empty before writing the new data
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
+
+	// Move the file pointer to the beginning of the file
+	if _, err := f.Seek(0, 0); err != nil {
+		return err
+	}
+
+	// Write the updated data
+	_, err = f.Write(s)
+	return err
+}
+
+var hashLogName = "map.json"
+
+func updateHashLog(dir string, ref string, hash string) error {
+	p := path.Join(dir, hashLogName)
+
+	// Open the file with read-write permissions, create if it doesn't exist
+	f, err := os.OpenFile(p, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var data = make(map[string]any)
+
+	// Read the existing contents if the file is not empty
+	s, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+
+	if len(s) != 0 {
+		err = json.Unmarshal(s, &data)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Check and remove the outdated cache file if the hash has changed
+	if oldHash, ok := data[ref]; ok {
+		if oldHash != hash {
+			oldFile := path.Join(dir, fmt.Sprintf("%s.tar.gz", oldHash))
+			os.Remove(oldFile)
+			fmt.Println("Removing outdated cache", oldFile)
+		}
+	}
+	data[ref] = hash
+
+	s, err = json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	// Truncate the file to ensure it's empty before writing the new data
+	if err := f.Truncate(0); err != nil {
+		return err
+	}
+
+	// Move the file pointer to the beginning of the file
+	if _, err := f.Seek(0, 0); err != nil {
+		return err
+	}
+
+	// Write the updated data
+	_, err = f.Write(s)
+	return err
 }
 
 func homeOrTmp() string {
