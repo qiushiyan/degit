@@ -13,6 +13,6 @@ func TestClone(t *testing.T) {
 
 	dir := os.TempDir() + "/degit"
 	defer os.Remove(dir)
-	err = repo.Clone(dir, true)
+	err = repo.Clone(dir, true, true)
 	require.NoError(t, err)
 }

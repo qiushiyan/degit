@@ -3,8 +3,6 @@ package degit
 import (
 	"bufio"
 	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,10 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 )
-
-var base = homeOrTmp()
 
 // Repo represents a remote repository at a ref (commit, branch, tag)
 type Repo struct {
@@ -31,7 +26,7 @@ type Repo struct {
 }
 
 // Clone copies the repository to the destination directory
-func (r *Repo) Clone(dst string, force bool) error {
+func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 	dstExists, err := exists(dst)
 	if err != nil {
 		return err
@@ -64,18 +59,19 @@ func (r *Repo) Clone(dst string, force bool) error {
 	}
 
 	if !fileExists {
-		fmt.Println("downloading", file, filepath.Dir(file))
 		err := os.MkdirAll(filepath.Dir(file), os.ModePerm)
 		if err != nil {
 			return err
 		}
-		err = r.download(file, hash)
+		err = r.download(file, hash, verbose)
 		if err != nil {
 			return err
 		}
+	} else {
+		log(verbose, "using cache for", r.URL)
 	}
 
-	if err := updateCache(filepath.Dir(file), r.Ref, hash); err != nil {
+	if err := updateCache(filepath.Dir(file), r.Ref, hash, verbose); err != nil {
 		return err
 	}
 
@@ -87,7 +83,7 @@ func (r *Repo) Clone(dst string, force bool) error {
 	return untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, hash))
 }
 
-func (r *Repo) download(dst string, hash string) error {
+func (r *Repo) download(dst string, hash string, verbose bool) error {
 	f, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -104,6 +100,7 @@ func (r *Repo) download(dst string, hash string) error {
 		url = fmt.Sprintf("%s/archive/%s.tar.gz", r.URL, hash)
 	}
 
+	log(verbose, "downloading from", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -112,7 +109,7 @@ func (r *Repo) download(dst string, hash string) error {
 		return fmt.Errorf("could not find repository %s", r.URL)
 	}
 	if resp.StatusCode != 200 {
-		return r.download(dst, resp.Header.Values("Location")[0])
+		return r.download(dst, resp.Header.Values("Location")[0], verbose)
 	}
 	defer resp.Body.Close()
 
@@ -122,7 +119,7 @@ func (r *Repo) download(dst string, hash string) error {
 }
 
 func (r *Repo) getOutputFile(hash string) string {
-	return path.Join(base, ".go-degit", r.Site, r.User, r.Name, fmt.Sprintf("%s.tar.gz", hash))
+	return path.Join(base, r.Site, r.User, r.Name, fmt.Sprintf("%s.tar.gz", hash))
 }
 
 func (r *Repo) getHash(refs []*ref) (string, error) {
@@ -156,6 +153,12 @@ func (r *Repo) getHash(refs []*ref) (string, error) {
 	return "", fmt.Errorf("could not find ref %s", r.Ref)
 }
 
+func log(verbose bool, msg ...any) {
+	if verbose {
+		fmt.Println(msg...)
+	}
+}
+
 type ref struct {
 	Type string
 	Name string
@@ -185,10 +188,10 @@ func (r *Repo) getRefs() ([]*ref, error) {
 			})
 
 		} else {
-			re := regexp.MustCompile(`refs\/(\w+)\/(.+)`)
+			re := regexp.MustCompile(`refs\/([\w-]+)\/(.+)`)
 			match := re.FindStringSubmatch(r)
 			if match == nil {
-				return nil, errors.New(fmt.Sprintf("could not parse %s", r))
+				return nil, fmt.Errorf("could not parse %s", r)
 			}
 
 			var refType string
@@ -211,130 +214,6 @@ func (r *Repo) getRefs() ([]*ref, error) {
 	}
 
 	return result, err
-}
-
-func updateCache(dir string, ref string, hash string) error {
-	if err := updateAccessLog(dir, ref); err != nil {
-		return err
-	}
-
-	if err := updateHashLog(dir, ref, hash); err != nil {
-		return err
-	}
-	return nil
-}
-
-var accessLogName = "access.json"
-
-func updateAccessLog(dir string, ref string) error {
-	path := path.Join(dir, accessLogName)
-
-	// Open the file with read-write permissions, create if it doesn't exist
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var data map[string]any = make(map[string]any)
-
-	// Read the existing contents if the file is not empty
-	s, err := io.ReadAll(f)
-	if err != nil {
-		return err
-	}
-
-	if len(s) != 0 {
-		err = json.Unmarshal(s, &data)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Update the data with the new reference and timestamp
-	data[ref] = time.Now()
-	s, err = json.Marshal(data)
-	if err != nil {
-		return err
-	}
-
-	// Truncate the file to ensure it's empty before writing the new data
-	if err := f.Truncate(0); err != nil {
-		return err
-	}
-
-	// Move the file pointer to the beginning of the file
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-
-	// Write the updated data
-	_, err = f.Write(s)
-	return err
-}
-
-var hashLogName = "map.json"
-
-func updateHashLog(dir string, ref string, hash string) error {
-	p := path.Join(dir, hashLogName)
-
-	// Open the file with read-write permissions, create if it doesn't exist
-	f, err := os.OpenFile(p, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	var data = make(map[string]any)
-
-	// Read the existing contents if the file is not empty
-	s, err := io.ReadAll(f)
-	if err != nil {
-		return err
-	}
-
-	if len(s) != 0 {
-		err = json.Unmarshal(s, &data)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Check and remove the outdated cache file if the hash has changed
-	if oldHash, ok := data[ref]; ok {
-		if oldHash != hash {
-			oldFile := path.Join(dir, fmt.Sprintf("%s.tar.gz", oldHash))
-			os.Remove(oldFile)
-			fmt.Println("Removing outdated cache", oldFile)
-		}
-	}
-	data[ref] = hash
-
-	s, err = json.Marshal(data)
-	if err != nil {
-		return err
-	}
-
-	// Truncate the file to ensure it's empty before writing the new data
-	if err := f.Truncate(0); err != nil {
-		return err
-	}
-
-	// Move the file pointer to the beginning of the file
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-
-	// Write the updated data
-	_, err = f.Write(s)
-	return err
-}
-
-func homeOrTmp() string {
-	if s, err := os.UserHomeDir(); s != "" && err == nil {
-		return s
-	}
-	return os.TempDir()
 }
 
 func exists(path string) (bool, error) {
