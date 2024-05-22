@@ -1,0 +1,18 @@
+package degit
+
+import (
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
+
+func TestClone(t *testing.T) {
+	repo, err := Parse("github.com/rich-harris/degit")
+	require.NoError(t, err)
+
+	dir := os.TempDir() + "/degit"
+	defer os.Remove(dir)
+	err = repo.Clone(dir, true)
+	require.NoError(t, err)
+}
