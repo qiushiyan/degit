@@ -49,6 +49,6 @@ brews:
     homepage: https://github.com/qiushiyan
     repository:
       owner: qiushiyan
-      name: go-degit
+      name: degit
     commit_author:
       name: qiushiyan
