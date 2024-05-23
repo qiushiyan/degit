@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	degit "github.com/qiushiyan/go-degit/pkg"
+	degit "github.com/qiushiyan/degit/pkg"
 	"github.com/spf13/cobra"
 )
 

@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	degit "github.com/qiushiyan/go-degit/pkg"
+	degit "github.com/qiushiyan/degit/pkg"
 	"github.com/spf13/cobra"
 )
 

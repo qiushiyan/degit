@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/qiushiyan/go-degit/cmd"
+	"github.com/qiushiyan/degit/cmd"
 )
 
 func setDefaultCommandIfNonePresent() {

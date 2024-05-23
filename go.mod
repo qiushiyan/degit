@@ -1,4 +1,4 @@
-module github.com/qiushiyan/go-degit
+module github.com/qiushiyan/degit
 
 go 1.22.2
 
