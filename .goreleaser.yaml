@@ -45,6 +45,7 @@ universal_binaries:
   - replace: true
 brews:
   - name: degit
+    description: A Go port of the node degit CLI https://github.com/rich-harris/degit. Download remote repositories without git history. Supports specifying subdirectory, branch and commit hash.
     homepage: https://github.com/qiushiyan
     repository:
       owner: qiushiyan
