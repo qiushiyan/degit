@@ -46,8 +46,8 @@ universal_binaries:
 brews:
   - name: degit
     homepage: https://github.com/qiushiyan
-    tap:
+    repository:
       owner: qiushiyan
-      name: homebrew-go-degit
+      name: go-degit
     commit_author:
       name: qiushiyan
