@@ -3,6 +3,9 @@
 Go port of [degit](https://github.com/rich-harris/degit).
 
 ```bash
+brew tap qiushiyan/degit https://github.com/qiushiyan/degit
+brew install qiushiyan/degit/degit
+
 degit user/repo#ref output-dir
 ```
 
