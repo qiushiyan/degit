@@ -6,18 +6,15 @@ import (
 	"io"
 	"os"
 	"path"
-	"path/filepath"
-	"strings"
 	"time"
-
-	"github.com/AlecAivazis/survey/v2"
 )
 
 var accessLogName = "access.json"
 var hashLogName = "map.json"
-var base = path.Join(homeOrTmp(), ".go-degit")
 
+// ClearCache remove cache folder for repositories. If filter is empty, all caches are cleared.
 func ClearCache(filter string, verbose bool) error {
+	base := GetCacheDir()
 	ok, err := exists(base)
 	if err != nil {
 		return err
@@ -28,34 +25,11 @@ func ClearCache(filter string, verbose bool) error {
 		}
 		return nil
 	}
-	var confirm bool
 	if filter == "" {
-		if verbose {
-			count, err := countRepoLevelDirectories(base)
-			if err != nil {
-				return err
-			}
-			err = survey.AskOne(
-				&survey.Confirm{
-					Message: fmt.Sprintf(
-						"Are you sure you want to clear all caches for %d repositories?",
-						count,
-					),
-				},
-				&confirm,
-			)
-			if err != nil {
-				return err
-			}
-			if confirm {
-				os.RemoveAll(base)
-			}
-		} else {
-			return os.RemoveAll(base)
-		}
+		return os.RemoveAll(base)
 	}
 
-	r, err := Parse(filter)
+	r, err := ParseRepo(filter)
 	if err != nil {
 		return err
 	}
@@ -72,21 +46,12 @@ func ClearCache(filter string, verbose bool) error {
 		return nil
 	}
 
-	err = survey.AskOne(
-		&survey.Confirm{
-			Message: fmt.Sprintf("Are you sure you want to clear cache for %s?", filter),
-		},
-		&confirm,
-	)
+	return os.RemoveAll(dir)
+}
 
-	if err != nil {
-		return err
-	}
-	if confirm {
-		os.RemoveAll(dir)
-	}
-
-	return nil
+// GetCacheDir returns the cache directory, usually $HOME/.go-degit
+func GetCacheDir() string {
+	return path.Join(homeOrTmp(), ".go-degit")
 }
 
 func updateCache(dir string, ref string, hash string, verbose bool) error {
@@ -200,25 +165,6 @@ func updateHashLog(dir string, ref string, hash string, verbose bool) error {
 	// Write the updated data
 	_, err = f.Write(s)
 	return err
-}
-
-func countRepoLevelDirectories(root string) (int, error) {
-	count := 0
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// site/user/repo
-		if info.IsDir() && depth(root, path) == 3 {
-			count++
-		}
-		return nil
-	})
-	return count, err
-}
-
-func depth(root, path string) int {
-	return len(strings.Split(strings.TrimPrefix(path, root), "/"))
 }
 
 func homeOrTmp() string {

@@ -8,7 +8,7 @@ import (
 )
 
 func TestClone(t *testing.T) {
-	repo, err := Parse("github.com/rich-harris/degit")
+	repo, err := ParseRepo("github.com/rich-harris/degit")
 	require.NoError(t, err)
 
 	dir := os.TempDir() + "/degit"

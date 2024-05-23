@@ -25,7 +25,7 @@ type Repo struct {
 	Subdir string
 }
 
-// Clone copies the repository to the destination directory
+// Clone downloads the repository into the destination
 func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 	dstExists, err := exists(dst)
 	if err != nil {
@@ -38,7 +38,7 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 				return err
 			}
 		} else {
-			return fmt.Errorf("output location %s already exists, use --force to overwrite", dst)
+			return fmt.Errorf("output location %s already exists", dst)
 		}
 	}
 
@@ -80,7 +80,12 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 		return err
 	}
 
-	return untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, hash))
+	err = untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, hash))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Repo) download(dst string, hash string, verbose bool) error {
@@ -119,7 +124,7 @@ func (r *Repo) download(dst string, hash string, verbose bool) error {
 }
 
 func (r *Repo) getOutputFile(hash string) string {
-	return path.Join(base, r.Site, r.User, r.Name, fmt.Sprintf("%s.tar.gz", hash))
+	return path.Join(GetCacheDir(), r.Site, r.User, r.Name, fmt.Sprintf("%s.tar.gz", hash))
 }
 
 func (r *Repo) getHash(refs []*ref) (string, error) {
@@ -150,7 +155,7 @@ func (r *Repo) getHash(refs []*ref) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("could not find ref %s", r.Ref)
+	return "", fmt.Errorf("could not find ref %s for repo %s", r.Ref, r.URL)
 }
 
 func log(verbose bool, msg ...any) {
@@ -170,8 +175,9 @@ func (r *Repo) getRefs() ([]*ref, error) {
 
 	var output []byte
 	var err error
+
 	if output, err = cmd.Output(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not find repository %s", r.URL)
 	}
 
 	var result []*ref
@@ -191,7 +197,7 @@ func (r *Repo) getRefs() ([]*ref, error) {
 			re := regexp.MustCompile(`refs\/([\w-]+)\/(.+)`)
 			match := re.FindStringSubmatch(r)
 			if match == nil {
-				return nil, fmt.Errorf("could not parse %s", r)
+				return nil, fmt.Errorf("could not parse git history %s", r)
 			}
 
 			var refType string

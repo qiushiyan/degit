@@ -15,13 +15,13 @@ var supportedHosts = map[string]bool{
 	"git.sr.ht": true,
 }
 
-func Parse(src string) (*Repo, error) {
+func ParseRepo(src string) (*Repo, error) {
 	re := regexp.MustCompile(
 		`^(?:(?:https:\/\/)?([^:/]+\.[^:/]+)\/|git@([^:/]+)[:/]|([^/]+):)?([^/\s]+)\/([^/\s#]+)(?:((?:\/[^/\s#]+)+))?(?:\/)?(?:#(.+))?`,
 	)
 	match := re.FindStringSubmatch(src)
 	if match == nil {
-		return nil, errors.New(fmt.Sprintf("could not parse %s", src))
+		return nil, fmt.Errorf("could not parse %s", src)
 	}
 
 	site := firstNonEmpty(match[1], match[2], match[3], "github")

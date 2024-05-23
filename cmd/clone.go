@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	degit "github.com/qiushiyan/degit/pkg"
 	"github.com/spf13/cobra"
@@ -10,19 +11,30 @@ import (
 // cloneCmd represents the clone command
 var cloneCmd = &cobra.Command{
 	Use:   "clone <src> <dst>",
-	Short: "Clone a repository into a local destination directory",
-	Long:  `Clone a repository into a local destination directory`,
+	Short: "Clone a repository locally",
+	Long:  `Downloads a repository into a local destination directory.`,
+	Args:  cobra.MatchAll(cobra.ExactArgs(2), cobra.OnlyValidArgs),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 2 {
-			return fmt.Errorf("clone requires two arguments")
+		dst := args[1]
+		if !Force {
+			stat, err := os.Stat(dst)
+			if err == nil && stat.IsDir() {
+				return fmt.Errorf("destination %s already exists, use --force to overwrite", dst)
+			}
 		}
-		repo, err := degit.Parse(args[0])
+
+		err := degit.Clone(args[0], args[1], Force, Verbose)
 		if err != nil {
 			return err
 		}
-		err = repo.Clone(args[1], Force, Verbose)
+
+		entries, err := os.ReadDir(dst)
 		if err != nil {
 			return err
+		}
+
+		if len(entries) == 0 {
+			fmt.Println("output directory is empty. did you specify the correct directory?")
 		}
 
 		return nil

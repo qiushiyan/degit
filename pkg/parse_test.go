@@ -73,7 +73,7 @@ func TestParse(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			repo, err := Parse(tc.url)
+			repo, err := ParseRepo(tc.url)
 			if tc.err != nil {
 				if err == nil || err.Error() != tc.err.Error() {
 					t.Errorf("Expected error '%v', got '%v'", tc.err, err)

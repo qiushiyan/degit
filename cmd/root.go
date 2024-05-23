@@ -13,15 +13,15 @@ var Force bool
 var rootCmd = &cobra.Command{
 	Use:   "degit user/repo#ref output-dir",
 	Short: "Straightforward project scaffolding",
-	Long: `A Go port of the node degit cli.
+	Long: `A Go port of the node degit cli https://github.com/rich-harris/degit.
+
+Usage:
 
 	degit user/repo#ref output-dir
 
-downloads the github repository locally. You can specify subdirectories and use Gitlab and Bitbucket repositories as well. If the commit hash does not change, degit uses the cached version to save downloading again.`,
+This will download a tarball for the repository github.com/user/repo at "ref" locally, and extracts it to output-dir. You can specify subdirectories and use Gitlab and Bitbucket repositories as well. degit also maintains a cache of downloaded tarballs that can be cleared with "degit clear".`,
 }
 
-// Execute adds all child commands to the root command and sets flags appropriately.
-// This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
