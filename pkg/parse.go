@@ -22,7 +22,7 @@ func ParseRepo(src string) (*Repo, error) {
 	match := re.FindStringSubmatch(src)
 	if match == nil {
 		return nil, fmt.Errorf(
-			"cant recognize %s as a git repository, example: github.com/user/repo",
+			"can't recognize %s as a git repository, example: github.com/user/repo",
 			src,
 		)
 	}

@@ -67,7 +67,10 @@ func TestParse(t *testing.T) {
 		{
 			name: "Invalid URL",
 			url:  "invalid-url",
-			err:  fmt.Errorf("could not parse invalid-url"),
+			err: fmt.Errorf(
+				"can't recognize %s as a git repository, example: github.com/user/repo",
+				"invalid-url",
+			),
 		},
 	}
 
