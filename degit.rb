@@ -5,11 +5,11 @@
 class Degit < Formula
   desc "A Go port of the node degit CLI https://github.com/rich-harris/degit. Download remote repositories without git history. Supports specifying subdirectory, branch and commit hash."
   homepage "https://github.com/qiushiyan"
-  version "0.0.7"
+  version "0.0.8"
 
   on_macos do
-    url "https://github.com/qiushiyan/degit/releases/download/v0.0.7/degit_Darwin_all.tar.gz"
-    sha256 "f96b14fa67001f46e55376c53b05f4a3c11b0d1b87662380f15ef1c19b5ccca5"
+    url "https://github.com/qiushiyan/degit/releases/download/v0.0.8/degit_Darwin_all.tar.gz"
+    sha256 "49af11d4e36f12078b4e97ca9aa758c90ffff232908716a01d8c7cbfaa760251"
 
     def install
       bin.install "degit"
@@ -19,8 +19,8 @@ class Degit < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/qiushiyan/degit/releases/download/v0.0.7/degit_Linux_x86_64.tar.gz"
-        sha256 "4a432120e02d73cc9cc5ae8f880fcb7e6ce160711273d508fceee0b5e685f26b"
+        url "https://github.com/qiushiyan/degit/releases/download/v0.0.8/degit_Linux_x86_64.tar.gz"
+        sha256 "fec6ae5104367afc301973507063f6de02a35956b1b5361d6faa857a11184eef"
 
         def install
           bin.install "degit"
@@ -29,8 +29,8 @@ class Degit < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/qiushiyan/degit/releases/download/v0.0.7/degit_Linux_arm64.tar.gz"
-        sha256 "c42630d5aee503ec93166ee0c4e9e3377d8facc09551dce03ad15f3e59aa09f7"
+        url "https://github.com/qiushiyan/degit/releases/download/v0.0.8/degit_Linux_arm64.tar.gz"
+        sha256 "41b67387f0f9e110c1be7af95a933daab873ec23b51872f55ec933f6daff470d"
 
         def install
           bin.install "degit"
