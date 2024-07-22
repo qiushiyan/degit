@@ -89,11 +89,11 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 }
 
 func (r *Repo) download(dst string, hash string, verbose bool) error {
-	f, err := os.Create(dst)
+	folder, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer folder.Close()
 
 	var url string
 	switch r.Site {
@@ -118,7 +118,7 @@ func (r *Repo) download(dst string, hash string, verbose bool) error {
 	}
 	defer resp.Body.Close()
 
-	_, err = io.Copy(f, resp.Body)
+	_, err = io.Copy(folder, resp.Body)
 
 	return err
 }
