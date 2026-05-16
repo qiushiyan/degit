@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run: `go run . user/repo#ref output-dir`
 - Test all: `go test -v ./...`
 - Test one: `go test -v -run TestParse ./pkg` (e.g. `TestParse`, `TestClone`)
-- Note: `TestClone` hits GitHub live (clones `rich-harris/degit` into `$TMPDIR/degit`). It needs network and can flake on rate limits / outages — not a test-environment issue.
+- Note: `TestClone`, `TestCloneSubdirViaWebURL`, and `TestCloneFileViaWebURL` hit GitHub live (clone `rich-harris/degit` into a `t.TempDir()`). The two web-URL tests pin to a specific commit SHA for reproducibility — if upstream force-pushes that history away, swap in a fresh SHA. All three can flake on network or rate limits.
 - Release (CI does this on tag push): driven by `.goreleaser.yaml`, which also publishes the `degit.rb` Homebrew formula in this repo
 
 ## Architecture
@@ -27,7 +27,7 @@ Global flags (`--verbose`, `--force`) live as package-level vars in `cmd/root.go
 
 `pkg.Clone` → `ParseRepo` → `Repo.Clone`. The package is published as `degit "github.com/qiushiyan/degit/pkg"` (note the import alias).
 
-1. **`parse.go`** — One regex parses every supported URL shape (`user/repo`, `host.com/user/repo/subdir#ref`, `git@host:user/repo`, etc.). Site detection picks the first non-empty capture group and falls back to `github`. The site string is the bare name (`github`, `gitlab`, `bitbucket`, `sourcehut`, `git.sr.ht`) — the full domain is reconstructed when building the URL. `Ref` defaults to the sentinel `"HEAD"`, which `getHash` resolves to the actual HEAD commit.
+1. **`parse.go`** — Two-stage parser. HTTPS URLs to known web hosts (`github.com/<u>/<r>/tree|blob/<ref>/<path>`, `raw.githubusercontent.com/...`) go through a structured fast-path (`tryParseWebURL`) that handles the paste-from-browser case and sets `Repo.IsFile` for blob/raw inputs. Everything else (native syntax `u/r#ref`, SSH URLs, `git@...`, GitLab/Bitbucket/Sourcehut hosts) falls through to a single regex. Site detection on the regex path picks the first non-empty capture group and falls back to `github`; the site string is the bare name (`github`, `gitlab`, `bitbucket`, `sourcehut`, `git.sr.ht`). `Ref` defaults to the sentinel `"HEAD"`, resolved by `getHash` later.
 
 2. **`repo.go:getRefs`** — Shells out to `git ls-remote <url>` to discover refs. **The `git` binary must be on PATH** at runtime; this is the project's only non-Go runtime dependency. `getHash` then resolves the user's ref against the parsed list (HEAD → branch/tag name → commit-hash prefix, min 7 chars).
 
@@ -39,11 +39,17 @@ Global flags (`--verbose`, `--force`) live as package-level vars in `cmd/root.go
 
 4. **`cache.go`** — Cache lives at `$HOME/.go-degit/{site}/{user}/{name}/`. Each successful download writes `{hash}.tar.gz` plus two sidecar JSON files: `map.json` (ref → hash) and `access.json` (ref → last-access timestamp). When `map.json` shows a ref now resolves to a different hash, the old `{oldHash}.tar.gz` is deleted to avoid unbounded growth. `degit clear` removes the entire tree, or a single repo subtree when given a filter.
 
-5. **`untar.go`** — Extracts the tarball, stripping the archive's top-level directory (`{name}-{hash}/`). If `Repo.Subdir` is set, entries outside that subdir are skipped and the subdir prefix is also stripped, so the subdir's contents land directly in `dst`. `pax_global_header` entries are explicitly skipped.
+5. **`untar.go`** — Extracts the tarball, stripping the archive's top-level directory (`{name}-{hash}/`). Two modes controlled by `isFile`:
+   - **Folder mode** (`isFile=false`): if `subdir` is set, entries outside it are skipped and the subdir prefix is stripped; surviving entries land under `dst`. Missing subdir is a silent no-op — the empty-output message in `cmd/clone.go` is the only signal.
+   - **File mode** (`isFile=true`): exactly one entry matches `subdir` and its bytes are written to `dst` directly (which is a file path, not a directory). Returns `file not found in repository: X` if the entry is missing.
+
+   `pax_global_header` entries are explicitly skipped in both modes.
 
 ### Things to know when editing
 
 - `cmd/clone.go` derives the destination directory from the subdir name (or repo name) when the user omits the second positional arg — keep this behavior in sync with how `untar.go` handles subdir stripping, or output paths will surprise users.
 - `Repo.Clone` calls `os.RemoveAll(dst)` when `--force` is set. Don't reorder the "destination exists" check without preserving this.
 - `getHash` requires commit-hash refs to be ≥7 chars. Branch and tag matching happen first, so a 6-char branch name still works; only the hash-prefix fallback enforces the minimum.
+- **Web URL ref parsing is naive.** `tryParseWebURL` treats the segment immediately after `tree`/`blob` as the ref. Branch names with `/` (e.g. `feat/foo/bar`) will mis-resolve from a github.com web URL — the user gets a clean `could not find ref X for repo Y`. Workaround is native syntax. We deliberately do not disambiguate against the refs list (`getRefs`) because the added complexity isn't worth it for a rare case.
+- **File targets use cp-like dst semantics.** `cmd/clone.go:resolveDestination` interprets `dst` based on `Repo.IsFile`: omitted → file's basename; existing-dir → join basename inside; otherwise literal. `Repo.Clone` correspondingly skips its usual `MkdirAll(dst)` and does `MkdirAll(filepath.Dir(dst))` in file mode so `dst` itself can become the file. `--force` overwrites a pre-existing file; pointing a file target at an existing directory always errors (we refuse to clobber a directory with a single file).
 - `AlecAivazis/survey/v2` (used in `cmd/clear.go` for the confirmation prompt) was archived by its author in 2023. It still functions, but if a task involves reworking interactive prompts, prefer migrating to `charmbracelet/huh` over extending survey usage.
