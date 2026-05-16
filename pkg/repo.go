@@ -76,7 +76,11 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 		return err
 	}
 
-	err = os.MkdirAll(dst, os.ModePerm)
+	if r.IsFile {
+		err = os.MkdirAll(filepath.Dir(dst), os.ModePerm)
+	} else {
+		err = os.MkdirAll(dst, os.ModePerm)
+	}
 	if err != nil {
 		return err
 	}
