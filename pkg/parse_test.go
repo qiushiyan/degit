@@ -72,6 +72,98 @@ func TestParse(t *testing.T) {
 				"invalid-url",
 			),
 		},
+
+		{
+			name: "GitHub web URL tree (folder)",
+			url:  "https://github.com/u/r/tree/main/a/b",
+			expected: &Repo{
+				Site:   "github",
+				User:   "u",
+				Name:   "r",
+				Ref:    "main",
+				URL:    "https://github.com/u/r",
+				Subdir: "/a/b",
+				IsFile: false,
+			},
+		},
+		{
+			name: "GitHub web URL blob (file)",
+			url:  "https://github.com/u/r/blob/main/README.md",
+			expected: &Repo{
+				Site:   "github",
+				User:   "u",
+				Name:   "r",
+				Ref:    "main",
+				URL:    "https://github.com/u/r",
+				Subdir: "/README.md",
+				IsFile: true,
+			},
+		},
+		{
+			name: "GitHub web URL blob with tag and nested path",
+			url:  "https://github.com/u/r/blob/v1.2.3/docs/api.md",
+			expected: &Repo{
+				Site:   "github",
+				User:   "u",
+				Name:   "r",
+				Ref:    "v1.2.3",
+				URL:    "https://github.com/u/r",
+				Subdir: "/docs/api.md",
+				IsFile: true,
+			},
+		},
+		{
+			name: "GitHub web URL tree with commit SHA",
+			url:  "https://github.com/u/r/tree/abc1234deadbeef/sub",
+			expected: &Repo{
+				Site:   "github",
+				User:   "u",
+				Name:   "r",
+				Ref:    "abc1234deadbeef",
+				URL:    "https://github.com/u/r",
+				Subdir: "/sub",
+				IsFile: false,
+			},
+		},
+		{
+			name: "GitHub raw URL",
+			url:  "https://raw.githubusercontent.com/u/r/main/file.txt",
+			expected: &Repo{
+				Site:   "github",
+				User:   "u",
+				Name:   "r",
+				Ref:    "main",
+				URL:    "https://github.com/u/r",
+				Subdir: "/file.txt",
+				IsFile: true,
+			},
+		},
+		{
+			name: "GitHub HTTPS bare repo URL (regression)",
+			url:  "https://github.com/u/r",
+			expected: &Repo{
+				Site:   "github",
+				User:   "u",
+				Name:   "r",
+				Ref:    "HEAD",
+				URL:    "https://github.com/u/r",
+				Subdir: "",
+				IsFile: false,
+			},
+		},
+		{
+			name: "Native syntax with fragment ref preserved (regression)",
+			url:  "u/r/sub#main",
+			expected: &Repo{
+				Site:   "github",
+				User:   "u",
+				Name:   "r",
+				Ref:    "main",
+				URL:    "https://github.com/u/r",
+				Subdir: "/sub",
+				IsFile: false,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -99,5 +191,6 @@ func reposEqual(r1, r2 *Repo) bool {
 		r1.Name == r2.Name &&
 		r1.Ref == r2.Ref &&
 		r1.URL == r2.URL &&
-		r1.Subdir == r2.Subdir
+		r1.Subdir == r2.Subdir &&
+		r1.IsFile == r2.IsFile
 }
