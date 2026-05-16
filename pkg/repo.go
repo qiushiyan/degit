@@ -23,6 +23,7 @@ type Repo struct {
 	URL    string
 	SSH    string
 	Subdir string
+	IsFile bool
 }
 
 // Clone downloads the repository into the destination
@@ -80,7 +81,7 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 		return err
 	}
 
-	err = untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, hash))
+	err = untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, hash), r.IsFile)
 	if err != nil {
 		return err
 	}
