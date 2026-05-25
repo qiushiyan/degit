@@ -16,14 +16,15 @@ import (
 
 // Repo represents a remote repository at a ref (commit, branch, tag)
 type Repo struct {
-	Site   string
-	User   string
-	Name   string
-	Ref    string
-	URL    string
-	SSH    string
-	Subdir string
-	IsFile bool
+	Site     string
+	User     string
+	Name     string
+	Ref      string
+	URL      string
+	SSH      string
+	Subdir   string
+	IsFile   bool
+	Progress Progress // optional; nil = silent (default)
 }
 
 // Clone downloads the repository into the destination
@@ -123,8 +124,17 @@ func (r *Repo) download(dst string, hash string, verbose bool) error {
 	}
 	defer resp.Body.Close()
 
-	_, err = io.Copy(folder, resp.Body)
+	if r.Progress != nil {
+		r.Progress.Init(resp.ContentLength)
+		defer r.Progress.Finish()
+	}
 
+	var sink io.Writer = folder
+	if r.Progress != nil {
+		sink = io.MultiWriter(folder, r.Progress)
+	}
+
+	_, err = io.Copy(sink, resp.Body)
 	return err
 }
 
