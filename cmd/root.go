@@ -8,6 +8,8 @@ import (
 
 var Verbose bool
 var Force bool
+var NoProgress bool
+var Quiet bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -39,6 +41,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&Verbose, "verbose", "v", false, "verbose output")
 	rootCmd.PersistentFlags().
 		BoolVarP(&Force, "force", "f", false, "overwrite destination directory")
+	rootCmd.PersistentFlags().
+		BoolVar(&NoProgress, "no-progress", false, "suppress the download progress bar")
+	rootCmd.PersistentFlags().
+		BoolVarP(&Quiet, "quiet", "q", false, "suppress all non-error output (mutually exclusive with --verbose)")
+	rootCmd.MarkFlagsMutuallyExclusive("quiet", "verbose")
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SilenceUsage = true
 }
