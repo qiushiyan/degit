@@ -13,7 +13,5 @@ This downloads the github repository `https://github.com/user/repo" at "ref", re
 ## Installation
 
 ```bash
-brew tap qiushiyan/degit https://github.com/qiushiyan/degit
-brew install qiushiyan/degit/degit
-
+brew install qiushiyan/tap/degit
 ```
