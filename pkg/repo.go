@@ -186,7 +186,7 @@ func (r *Repo) getHash(refs []*ref) (string, error) {
 
 func log(verbose bool, msg ...any) {
 	if verbose {
-		fmt.Println(msg...)
+		fmt.Fprintln(os.Stderr, msg...)
 	}
 }
 

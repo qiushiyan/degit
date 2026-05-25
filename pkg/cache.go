@@ -21,7 +21,7 @@ func ClearCache(filter string, verbose bool) error {
 	}
 	if !ok {
 		if verbose {
-			fmt.Println("no cache found")
+			fmt.Fprintln(os.Stderr, "no cache found")
 		}
 		return nil
 	}
@@ -41,7 +41,7 @@ func ClearCache(filter string, verbose bool) error {
 	}
 	if !ok {
 		if verbose {
-			fmt.Printf("no cache found for %s\n", filter)
+			fmt.Fprintf(os.Stderr, "no cache found for %s\n", filter)
 		}
 		return nil
 	}
