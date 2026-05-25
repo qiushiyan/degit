@@ -130,13 +130,18 @@ func (r *Repo) download(dst string, hash string, verbose bool) error {
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("could not find repository %s", r.URL)
 	}
 	if resp.StatusCode != 200 {
-		return r.download(dst, resp.Header.Values("Location")[0], verbose)
+		location := resp.Header.Get("Location")
+		if location == "" {
+			return fmt.Errorf("redirect from %s missing Location header", url)
+		}
+		return r.download(dst, location, verbose)
 	}
-	defer resp.Body.Close()
 
 	var sink io.Writer = folder
 	if r.Progress != nil {
