@@ -13,11 +13,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Test all: `go test -v ./...`
 - Test one: `go test -v -run TestParse ./pkg` (e.g. `TestParse`, `TestClone`)
 - Note: `TestClone`, `TestCloneSubdirViaWebURL`, and `TestCloneFileViaWebURL` hit GitHub live (clone `rich-harris/degit` into a `t.TempDir()`). The two web-URL tests pin to a stable tag (`v2.8.5`) for reproducibility. Pinning to a raw commit SHA does **not** work — `getHash` only resolves refs returned by `git ls-remote`, so historical commits not at a branch/tag tip can't be downloaded. All three tests can flake on network or rate limits.
-- Release: two-stage automation.
-  1. **Push to `main`** triggers `.github/workflows/release-please.yaml`. Release-please reads conventional commits since the last tag (`feat:` / `fix:` / `feat!:` for breaking) and opens or updates a "chore: release X.Y.Z" PR. Merging that PR pushes the `vX.Y.Z` tag and creates the GitHub Release with a generated changelog. Commits that don't match a conventional type are ignored for versioning — use `feat:` / `fix:` to ship a release.
-  2. **Tag push** triggers `.github/workflows/release.yaml` which runs goreleaser. Goreleaser builds the cross-platform archives, appends them to the release release-please just created (`release.mode: append` — do not change this without also disabling release-please's release creation), and commits `Formula/degit.rb` to the separate `qiushiyan/homebrew-tap` repo. The formula does **not** live in this repo; do not recreate `degit.rb` here.
-  - Both workflows authenticate with `PUBLISHER_TOKEN` (a PAT). The release-please workflow specifically requires a PAT, not `GITHUB_TOKEN`, because GitHub does not fire downstream workflows on tags pushed by `GITHUB_TOKEN` — the goreleaser job would never run.
-  - Current version is tracked in `.release-please-manifest.json`. Do not hand-edit it; release-please rewrites it on each release PR merge.
+
+## Releases
+
+Driven by conventional commits. A push to `main` triggers release-please, which reads commit titles since the last tag (or PR titles, when squash-merged) and opens a "chore(main): release X.Y.Z" PR if any qualify:
+
+- `feat:` → minor bump, "Features" entry (0.1 → 0.2 pre-1.0; `bump-minor-pre-major` defaults on)
+- `fix:` → patch bump, "Bug Fixes" entry
+- `feat!:` or `BREAKING CHANGE:` in body → minor pre-1.0, major after 1.0
+- `chore:`, `ci:`, `docs:`, `refactor:`, `test:`, `build:`, `perf:` → no bump, hidden from changelog
+- Anything else → silently ignored, won't appear in any release
+
+A commit without a recognized prefix is invisible to releases — commit a bug fix as `fix: ...`, not `update X` or `typo`. When the PR is squash-merged, the PR title becomes the commit subject, so the PR title is what matters.
+
+Merging the release PR is the only manual step from there: it pushes the tag, which triggers goreleaser to build binaries and commit `Formula/degit.rb` to `qiushiyan/homebrew-tap`.
+
+Do not hand-edit `.release-please-manifest.json` (release-please rewrites it on each release-PR merge) or any file in `qiushiyan/homebrew-tap` (goreleaser overwrites it on every release — fix formula bugs in `.goreleaser.yaml` instead).
 
 ## Architecture
 
