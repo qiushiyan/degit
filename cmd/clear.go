@@ -26,7 +26,7 @@ var clearCmd = &cobra.Command{
 
 		dir := degit.GetCacheDir()
 		if stat, err := os.Stat(dir); err != nil || !stat.IsDir() {
-			fmt.Println("no cache found, skipping")
+			fmt.Fprintln(os.Stderr, "no cache found, skipping")
 			return nil
 		}
 
@@ -57,7 +57,7 @@ var clearCmd = &cobra.Command{
 
 			dir := path.Join(dir, r.Site, r.User, r.Name)
 			if stat, err := os.Stat(dir); err != nil || !stat.IsDir() {
-				fmt.Printf("no cache found for %s\n", filter)
+				fmt.Fprintf(os.Stderr, "no cache found for %s\n", filter)
 				return nil
 			}
 
