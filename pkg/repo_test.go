@@ -9,11 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// pinnedSHA is a specific commit on rich-harris/degit. Pinning to a known
-// commit insulates the tests from upstream file renames or restructures.
-// The SHA refers to real repo history and will not disappear barring a
-// force-push, which is rare on this repo.
-const pinnedSHA = "551ce4a7b5634ac1e4f7fdc8549ef6a1ee5e1d45"
+// pinnedTag is a stable tag on rich-harris/degit. Tags don't move, so the
+// tests stay reproducible across upstream churn. We use a pre-3.0 release
+// because v3 converted to TypeScript (src/*.ts) and moved help.md under
+// assets/, which would invalidate the assertions below.
+//
+// Pinning to a raw commit SHA does NOT work: degit's getHash only resolves
+// refs returned by `git ls-remote`, so historical commits that aren't at a
+// branch/tag tip can't be downloaded.
+const pinnedTag = "v2.8.5"
 
 func TestClone(t *testing.T) {
 	repo, err := ParseRepo("github.com/rich-harris/degit")
@@ -24,7 +28,7 @@ func TestClone(t *testing.T) {
 }
 
 func TestCloneSubdirViaWebURL(t *testing.T) {
-	src := "https://github.com/rich-harris/degit/tree/" + pinnedSHA + "/src"
+	src := "https://github.com/rich-harris/degit/tree/" + pinnedTag + "/src"
 	repo, err := ParseRepo(src)
 	require.NoError(t, err)
 
@@ -42,7 +46,7 @@ func TestCloneSubdirViaWebURL(t *testing.T) {
 }
 
 func TestCloneFileViaWebURL(t *testing.T) {
-	src := "https://github.com/rich-harris/degit/blob/" + pinnedSHA + "/help.md"
+	src := "https://github.com/rich-harris/degit/blob/" + pinnedTag + "/help.md"
 	repo, err := ParseRepo(src)
 	require.NoError(t, err)
 
