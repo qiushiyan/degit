@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/qiushiyan/degit/compare/v0.1.0...v0.1.1) (2026-05-25)
+
+
+### Bug Fixes
+
+* **ci:** put homebrew formula in Formula/ so the tap is installable ([47ceb29](https://github.com/qiushiyan/degit/commit/47ceb290db128d80a3ffbfc622b468b366076b84))
+
 ## [0.1.0](https://github.com/qiushiyan/degit/compare/v0.0.8...v0.1.0) (2026-05-25)
 
 
