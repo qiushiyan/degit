@@ -13,7 +13,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Test all: `go test -v ./...`
 - Test one: `go test -v -run TestParse ./pkg` (e.g. `TestParse`, `TestClone`)
 - Note: `TestClone`, `TestCloneSubdirViaWebURL`, and `TestCloneFileViaWebURL` hit GitHub live (clone `rich-harris/degit` into a `t.TempDir()`). The two web-URL tests pin to a stable tag (`v2.8.5`) for reproducibility. Pinning to a raw commit SHA does **not** work — `getHash` only resolves refs returned by `git ls-remote`, so historical commits not at a branch/tag tip can't be downloaded. All three tests can flake on network or rate limits.
-- Release (CI does this on tag push): driven by `.goreleaser.yaml`, which also publishes the `degit.rb` Homebrew formula in this repo
+- Release: two-stage automation.
+  1. **Push to `main`** triggers `.github/workflows/release-please.yaml`. Release-please reads conventional commits since the last tag (`feat:` / `fix:` / `feat!:` for breaking) and opens or updates a "chore: release X.Y.Z" PR. Merging that PR pushes the `vX.Y.Z` tag and creates the GitHub Release with a generated changelog. Commits that don't match a conventional type are ignored for versioning — use `feat:` / `fix:` to ship a release.
+  2. **Tag push** triggers `.github/workflows/release.yaml` which runs goreleaser. Goreleaser builds the cross-platform archives, appends them to the release release-please just created (`release.mode: append` — do not change this without also disabling release-please's release creation), and commits `Formula/degit.rb` to the separate `qiushiyan/homebrew-tap` repo. The formula does **not** live in this repo; do not recreate `degit.rb` here.
+  - Both workflows authenticate with `PUBLISHER_TOKEN` (a PAT). The release-please workflow specifically requires a PAT, not `GITHUB_TOKEN`, because GitHub does not fire downstream workflows on tags pushed by `GITHUB_TOKEN` — the goreleaser job would never run.
+  - Current version is tracked in `.release-please-manifest.json`. Do not hand-edit it; release-please rewrites it on each release PR merge.
 
 ## Architecture
 

@@ -1,0 +1,25 @@
+name: release-please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # PUBLISHER_TOKEN (a PAT) is required instead of the default GITHUB_TOKEN
+      # so that the tag push from the merged release PR triggers the
+      # tag-gated goreleaser workflow. GITHUB_TOKEN events do not start
+      # downstream workflow runs.
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.PUBLISHER_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

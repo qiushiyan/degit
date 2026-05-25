@@ -33,22 +33,26 @@ checksum:
 snapshot:
   name_template: "{{ incpatch .Version }}-next"
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
+  # release-please owns the changelog text on the GitHub Release.
+  # Disable goreleaser's auto-changelog so the two don't fight.
+  disable: true
 release:
   prerelease: auto
+  # release-please creates the GitHub Release when its release PR is merged.
+  # `append` tells goreleaser to upload binaries to that existing release
+  # rather than fail because the tag already has one.
+  mode: append
 
 universal_binaries:
   - replace: true
 brews:
   - name: degit
     description: A Go port of the node degit CLI https://github.com/rich-harris/degit. Download remote repositories without git history. Supports specifying subdirectory, branch and commit hash.
-    homepage: https://github.com/qiushiyan
+    homepage: https://github.com/qiushiyan/degit
     repository:
       owner: qiushiyan
-      name: degit
+      name: homebrew-tap
+      branch: main
     commit_author:
       name: qiushiyan
+      email: qiushi.yann@gmail.com
