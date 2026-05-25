@@ -59,8 +59,8 @@ func TestDownloadCallsProgress(t *testing.T) {
 	require.NoError(t, repo.download(dst, "deadbeef", false))
 
 	require.Equal(t, 1, fp.initCount, "Init should be called exactly once")
-	require.Equal(t, int64(13), fp.initTotal, "Init should receive the Content-Length")
-	require.Equal(t, 13, fp.bytesWritten, "all body bytes should be forwarded to Progress")
+	require.Equal(t, int64(len(body)), fp.initTotal, "Init should receive the Content-Length")
+	require.Equal(t, len(body), fp.bytesWritten, "all body bytes should be forwarded to Progress")
 	require.Equal(t, 1, fp.finishCount, "Finish should be called exactly once")
 
 	got, err := os.ReadFile(dst)

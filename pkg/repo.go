@@ -124,13 +124,10 @@ func (r *Repo) download(dst string, hash string, verbose bool) error {
 	}
 	defer resp.Body.Close()
 
+	var sink io.Writer = folder
 	if r.Progress != nil {
 		r.Progress.Init(resp.ContentLength)
 		defer r.Progress.Finish()
-	}
-
-	var sink io.Writer = folder
-	if r.Progress != nil {
 		sink = io.MultiWriter(folder, r.Progress)
 	}
 
