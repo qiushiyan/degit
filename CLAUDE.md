@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run: `go run . user/repo#ref output-dir`
 - Test all: `go test -v ./...`
 - Test one: `go test -v -run TestParse ./pkg` (e.g. `TestParse`, `TestClone`)
-- Note: `TestClone`, `TestCloneSubdirViaWebURL`, and `TestCloneFileViaWebURL` hit GitHub live (clone `rich-harris/degit` into a `t.TempDir()`). The two web-URL tests pin to a specific commit SHA for reproducibility — if upstream force-pushes that history away, swap in a fresh SHA. All three can flake on network or rate limits.
+- Note: `TestClone`, `TestCloneSubdirViaWebURL`, and `TestCloneFileViaWebURL` hit GitHub live (clone `rich-harris/degit` into a `t.TempDir()`). The two web-URL tests pin to a stable tag (`v2.8.5`) for reproducibility. Pinning to a raw commit SHA does **not** work — `getHash` only resolves refs returned by `git ls-remote`, so historical commits not at a branch/tag tip can't be downloaded. All three tests can flake on network or rate limits.
 - Release (CI does this on tag push): driven by `.goreleaser.yaml`, which also publishes the `degit.rb` Homebrew formula in this repo
 
 ## Architecture
