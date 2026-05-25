@@ -25,6 +25,38 @@ type Repo struct {
 	Subdir   string
 	IsFile   bool
 	Progress Progress // optional; nil = silent (default)
+	Hash     string   // populated by Resolve(); the resolved commit hash
+	Cached   bool     // populated by Resolve(); true if the tarball is already in cache
+}
+
+// Resolve discovers the commit hash that r.Ref points to and checks whether
+// the resulting tarball is already in the on-disk cache. It is safe to call
+// multiple times; subsequent calls are a no-op once Hash is populated.
+//
+// Clone calls Resolve internally if Hash is empty, so direct library users
+// who only call Clone do not need to call Resolve. The CLI calls Resolve
+// first so it can print the resolved ref (or a cache-hit hint) before any
+// download begins.
+func (r *Repo) Resolve() error {
+	if r.Hash != "" {
+		return nil
+	}
+	refs, err := r.getRefs()
+	if err != nil {
+		return err
+	}
+	hash, err := r.getHash(refs)
+	if err != nil {
+		return err
+	}
+	r.Hash = hash
+
+	cached, err := exists(r.getOutputFile(hash))
+	if err != nil {
+		return err
+	}
+	r.Cached = cached
+	return nil
 }
 
 // Clone downloads the repository into the destination
@@ -35,8 +67,7 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 	}
 	if dstExists {
 		if force {
-			err = os.RemoveAll(dst)
-			if err != nil {
+			if err := os.RemoveAll(dst); err != nil {
 				return err
 			}
 		} else {
@@ -44,36 +75,24 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 		}
 	}
 
-	refs, err := r.getRefs()
-	if err != nil {
+	if err := r.Resolve(); err != nil {
 		return err
 	}
 
-	hash, err := r.getHash(refs)
-	if err != nil {
-		return err
-	}
+	file := r.getOutputFile(r.Hash)
 
-	file := r.getOutputFile(hash)
-	fileExists, err := exists(file)
-	if err != nil {
-		return err
-	}
-
-	if !fileExists {
-		err := os.MkdirAll(filepath.Dir(file), os.ModePerm)
-		if err != nil {
+	if !r.Cached {
+		if err := os.MkdirAll(filepath.Dir(file), os.ModePerm); err != nil {
 			return err
 		}
-		err = r.download(file, hash, verbose)
-		if err != nil {
+		if err := r.download(file, r.Hash, verbose); err != nil {
 			return err
 		}
 	} else {
 		log(verbose, "using cache for", r.URL)
 	}
 
-	if err := updateCache(filepath.Dir(file), r.Ref, hash, verbose); err != nil {
+	if err := updateCache(filepath.Dir(file), r.Ref, r.Hash, verbose); err != nil {
 		return err
 	}
 
@@ -86,12 +105,7 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 		return err
 	}
 
-	err = untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, hash), r.IsFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, r.Hash), r.IsFile)
 }
 
 func (r *Repo) download(dst string, hash string, verbose bool) error {
