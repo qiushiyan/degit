@@ -3,13 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	degit "github.com/qiushiyan/degit/pkg"
 	"github.com/spf13/cobra"
 )
 
-// cloneCmd represents the clone command
 var cloneCmd = &cobra.Command{
 	Use:   "clone <src> <dst>",
 	Short: "Clone a repository locally",
@@ -21,26 +21,14 @@ var cloneCmd = &cobra.Command{
 			return err
 		}
 
-		// if dst is not specified, use the repo name or subdir as the name for the output directory
-		var dst string
-		if len(args) < 2 {
-			if repo.Subdir != "" {
-				if strings.HasPrefix(repo.Subdir, "/") {
-					dst = repo.Subdir[1:]
-				} else {
-					dst = repo.Subdir
-				}
-			} else {
-				dst = repo.Name
-			}
-		} else {
-			dst = args[1]
-		}
+		dst := resolveDestination(repo, args)
 
-		if !Force {
-			stat, err := os.Stat(dst)
-			if err == nil && stat.IsDir() {
+		if stat, err := os.Stat(dst); err == nil {
+			if !Force {
 				return fmt.Errorf("destination `%s` already exists, use --force to overwrite", dst)
+			}
+			if repo.IsFile && stat.IsDir() {
+				return fmt.Errorf("destination `%s` is a directory; refusing to overwrite with a file", dst)
 			}
 		}
 
@@ -48,36 +36,50 @@ var cloneCmd = &cobra.Command{
 			fmt.Printf("Cloning `%s` into `%s`\n", repo.URL, dst)
 		}
 
-		err = repo.Clone(dst, Force, Verbose)
-		if err != nil {
+		if err := repo.Clone(dst, Force, Verbose); err != nil {
 			return err
+		}
+
+		if repo.IsFile {
+			return nil
 		}
 
 		entries, err := os.ReadDir(dst)
 		if err != nil {
 			return err
 		}
-
 		if len(entries) == 0 {
 			fmt.Println(
 				"Output directory is empty, you might have specified an non-existing subfolder in the repository",
 			)
 		}
-
 		return nil
 	},
 }
 
+// resolveDestination applies cp-like semantics for file targets:
+//   - omitted dst: file basename (or subdir / repo name for folder targets)
+//   - dst is an existing directory: write inside it using the file's basename
+//   - otherwise: dst is the literal target path
+func resolveDestination(repo *degit.Repo, args []string) string {
+	if len(args) >= 2 {
+		dst := args[1]
+		if repo.IsFile {
+			if stat, err := os.Stat(dst); err == nil && stat.IsDir() {
+				return filepath.Join(dst, filepath.Base(strings.TrimPrefix(repo.Subdir, "/")))
+			}
+		}
+		return dst
+	}
+	if repo.IsFile {
+		return filepath.Base(strings.TrimPrefix(repo.Subdir, "/"))
+	}
+	if repo.Subdir != "" {
+		return strings.TrimPrefix(repo.Subdir, "/")
+	}
+	return repo.Name
+}
+
 func init() {
 	rootCmd.AddCommand(cloneCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// cloneCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// cloneCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
