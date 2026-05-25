@@ -49,6 +49,10 @@ brews:
   - name: degit
     description: A Go port of the node degit CLI https://github.com/rich-harris/degit. Download remote repositories without git history. Supports specifying subdirectory, branch and commit hash.
     homepage: https://github.com/qiushiyan/degit
+    # Without this, goreleaser v1 writes the formula at the tap repo root,
+    # where `brew tap qiushiyan/tap` cannot find it (Homebrew expects
+    # Formula/<name>.rb).
+    directory: Formula
     repository:
       owner: qiushiyan
       name: homebrew-tap
