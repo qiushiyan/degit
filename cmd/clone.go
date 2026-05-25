@@ -8,6 +8,7 @@ import (
 
 	degit "github.com/qiushiyan/degit/pkg"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var cloneCmd = &cobra.Command{
@@ -33,11 +34,31 @@ var cloneCmd = &cobra.Command{
 		}
 
 		if Verbose {
-			fmt.Printf("Cloning `%s` into `%s`\n", repo.URL, dst)
+			fmt.Fprintf(os.Stderr, "Cloning `%s` into `%s`\n", repo.URL, dst)
+		}
+
+		if err := repo.Resolve(); err != nil {
+			return err
+		}
+
+		if !Quiet {
+			if repo.Cached {
+				printCacheHit(os.Stderr, repo)
+			} else {
+				printResolved(os.Stderr, repo)
+			}
+		}
+
+		if !Quiet && !NoProgress && !repo.Cached && term.IsTerminal(int(os.Stderr.Fd())) {
+			repo.Progress = newCLIProgress("downloading")
 		}
 
 		if err := repo.Clone(dst, Force, Verbose); err != nil {
 			return err
+		}
+
+		if !Quiet {
+			printDone(os.Stderr, repo, dst)
 		}
 
 		if repo.IsFile {
@@ -48,8 +69,9 @@ var cloneCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if len(entries) == 0 {
-			fmt.Println(
+		if len(entries) == 0 && !Quiet {
+			fmt.Fprintln(
+				os.Stderr,
 				"Output directory is empty, you might have specified an non-existing subfolder in the repository",
 			)
 		}
