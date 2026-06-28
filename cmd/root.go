@@ -10,6 +10,7 @@ var Verbose bool
 var Force bool
 var NoProgress bool
 var Quiet bool
+var Flat bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -45,6 +46,8 @@ func init() {
 		BoolVar(&NoProgress, "no-progress", false, "suppress the download progress bar")
 	rootCmd.PersistentFlags().
 		BoolVarP(&Quiet, "quiet", "q", false, "suppress all non-error output (mutually exclusive with --verbose)")
+	rootCmd.PersistentFlags().
+		BoolVar(&Flat, "flat", false, "extract contents directly into the destination directory instead of creating a named subfolder")
 	rootCmd.MarkFlagsMutuallyExclusive("quiet", "verbose")
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SilenceUsage = true

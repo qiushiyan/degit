@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -31,6 +32,11 @@ func untar(file, dst, subdir, prefix string, isFile bool) error {
 	if !isFile && subdir != "" && !strings.HasSuffix(subdir, "/") {
 		subdir += "/"
 	}
+
+	// Folder-mode bookkeeping: whether any entry fell inside subdir, and the
+	// set of directories seen, used to suggest a near-match when subdir is not found.
+	matched := false
+	var dirs []string
 
 	for {
 		header, err := tr.Next()
@@ -72,12 +78,17 @@ func untar(file, dst, subdir, prefix string, isFile bool) error {
 			return out.Close()
 		}
 
+		if header.Typeflag == tar.TypeDir {
+			dirs = append(dirs, header.Name)
+		}
+
 		if subdir != "" {
 			if !strings.HasPrefix(header.Name, subdir) {
 				continue
 			}
 			header.Name = strings.TrimPrefix(header.Name, subdir)
 		}
+		matched = true
 
 		target := filepath.Join(dst, header.Name)
 
@@ -111,5 +122,47 @@ func untar(file, dst, subdir, prefix string, isFile bool) error {
 		return fmt.Errorf("file not found in repository: %s", strings.TrimPrefix(subdir, "/"))
 	}
 
+	if subdir != "" && !matched {
+		return notFoundDirError(subdir, dirs)
+	}
+
 	return nil
+}
+
+// notFoundDirError builds a helpful error when a requested subdir matched no
+// entries. It suggests archive directories whose path ends with the requested
+// subdir, or failing that whose final segment matches it — which catches the
+// common case of omitting an intermediate folder (asking for
+// "productivity/grill-me" when the real path is "skills/productivity/grill-me").
+func notFoundDirError(subdir string, dirs []string) error {
+	want := strings.Trim(subdir, "/")
+	wantBase := path.Base(want)
+
+	var suffix, base []string
+	seen := map[string]bool{}
+	for _, d := range dirs {
+		clean := strings.Trim(d, "/")
+		if clean == "" || clean == want || seen[clean] {
+			continue
+		}
+		seen[clean] = true
+		switch {
+		case strings.HasSuffix(clean, "/"+want):
+			suffix = append(suffix, clean)
+		case path.Base(clean) == wantBase:
+			base = append(base, clean)
+		}
+	}
+
+	suggestions := append(suffix, base...)
+	if len(suggestions) > 3 {
+		suggestions = suggestions[:3]
+	}
+	if len(suggestions) > 0 {
+		return fmt.Errorf(
+			"directory not found in repository: %s (did you mean: %s?)",
+			want, strings.Join(suggestions, ", "),
+		)
+	}
+	return fmt.Errorf("directory not found in repository: %s", want)
 }

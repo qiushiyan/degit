@@ -165,6 +165,48 @@ func TestUntarSingleFileNested(t *testing.T) {
 	}
 }
 
+func TestUntarSubdirNotFoundWithSuggestion(t *testing.T) {
+	prefix := "skills-abc"
+	src := writeTarGz(t, []tarEntry{
+		{name: "skills-abc/", isDir: true},
+		{name: "skills-abc/skills/", isDir: true},
+		{name: "skills-abc/skills/productivity/", isDir: true},
+		{name: "skills-abc/skills/productivity/grill-me/", isDir: true},
+		{name: "skills-abc/skills/productivity/grill-me/SKILL.md", content: "x"},
+	})
+	dst := t.TempDir()
+
+	// Asking for "/productivity/grill-me" omits the repo's internal "skills/"
+	// folder; the real path is "skills/productivity/grill-me".
+	err := untar(src, dst, "/productivity/grill-me", prefix, false)
+	if err == nil {
+		t.Fatalf("expected error for missing subdir, got nil")
+	}
+	want := "directory not found in repository: productivity/grill-me (did you mean: skills/productivity/grill-me?)"
+	if err.Error() != want {
+		t.Errorf("error: got %q, want %q", err.Error(), want)
+	}
+}
+
+func TestUntarSubdirNotFoundNoSuggestion(t *testing.T) {
+	prefix := "proj-abc"
+	src := writeTarGz(t, []tarEntry{
+		{name: "proj-abc/", isDir: true},
+		{name: "proj-abc/README.md", content: "hello"},
+		{name: "proj-abc/lib/", isDir: true},
+	})
+	dst := t.TempDir()
+
+	err := untar(src, dst, "/nonexistent", prefix, false)
+	if err == nil {
+		t.Fatalf("expected error for missing subdir, got nil")
+	}
+	want := "directory not found in repository: nonexistent"
+	if err.Error() != want {
+		t.Errorf("error: got %q, want %q", err.Error(), want)
+	}
+}
+
 func TestUntarSingleFileNotFound(t *testing.T) {
 	prefix := "proj-abc"
 	src := writeTarGz(t, []tarEntry{

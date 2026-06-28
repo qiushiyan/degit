@@ -22,9 +22,16 @@ var cloneCmd = &cobra.Command{
 			return err
 		}
 
-		dst := resolveDestination(repo, args)
+		// --flat only applies to folder downloads; a single file is always
+		// written to its resolved path regardless.
+		flat := Flat && !repo.IsFile
+		repo.Flat = flat
 
-		if stat, err := os.Stat(dst); err == nil {
+		dst := resolveDestination(repo, args, flat)
+
+		// In flat mode we deliberately overlay onto an existing dir, so the
+		// dst-exists guard is skipped.
+		if stat, err := os.Stat(dst); err == nil && !flat {
 			if !Force {
 				return fmt.Errorf("destination `%s` already exists, use --force to overwrite", dst)
 			}
@@ -79,25 +86,38 @@ var cloneCmd = &cobra.Command{
 	},
 }
 
-// resolveDestination applies cp-like semantics for file targets:
-//   - omitted dst: file basename (or subdir / repo name for folder targets)
-//   - dst is an existing directory: write inside it using the file's basename
-//   - otherwise: dst is the literal target path
-func resolveDestination(repo *degit.Repo, args []string) string {
+// resolveDestination applies cp-like semantics, uniformly for files and
+// folders:
+//
+//   - dst omitted             -> base name in the current directory
+//   - dst is an existing dir  -> base name created inside it
+//   - dst is anything else    -> dst is the literal target (rename)
+//
+// base is the file's name (file mode), the last segment of the subdir, or the
+// repository name (folder mode, no subdir). In --flat folder mode the
+// existing-dir rule is skipped so contents land directly in dst.
+func resolveDestination(repo *degit.Repo, args []string, flat bool) string {
+	base := destinationBase(repo)
+
 	if len(args) >= 2 {
 		dst := args[1]
-		if repo.IsFile {
+		if !flat {
 			if stat, err := os.Stat(dst); err == nil && stat.IsDir() {
-				return filepath.Join(dst, filepath.Base(strings.TrimPrefix(repo.Subdir, "/")))
+				return filepath.Join(dst, base)
 			}
 		}
 		return dst
 	}
-	if repo.IsFile {
-		return filepath.Base(strings.TrimPrefix(repo.Subdir, "/"))
-	}
+
+	return base
+}
+
+// destinationBase is the name the download lands under when dst is omitted or
+// is an existing directory: the trailing path segment of a file/subdir target,
+// or the repository name when cloning a whole repo.
+func destinationBase(repo *degit.Repo) string {
 	if repo.Subdir != "" {
-		return strings.TrimPrefix(repo.Subdir, "/")
+		return filepath.Base(strings.TrimPrefix(repo.Subdir, "/"))
 	}
 	return repo.Name
 }

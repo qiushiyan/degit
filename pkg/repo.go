@@ -24,6 +24,7 @@ type Repo struct {
 	SSH      string
 	Subdir   string
 	IsFile   bool
+	Flat     bool     // folder mode only; overlay contents into an existing dst instead of refusing/wiping it
 	Progress Progress // optional; nil = silent (default)
 	Hash     string   // populated by Resolve(); the resolved commit hash
 	Cached   bool     // populated by Resolve(); true if the tarball is already in cache
@@ -61,11 +62,16 @@ func (r *Repo) Resolve() error {
 
 // Clone downloads the repository into the destination
 func (r *Repo) Clone(dst string, force bool, verbose bool) error {
+	// In flat folder mode we overlay onto an existing dst rather than refusing
+	// or wiping it, so the dst-exists guard (and the --force RemoveAll) is
+	// skipped. File mode is never flat.
+	overlay := r.Flat && !r.IsFile
+
 	dstExists, err := exists(dst)
 	if err != nil {
 		return err
 	}
-	if dstExists {
+	if dstExists && !overlay {
 		if force {
 			if err := os.RemoveAll(dst); err != nil {
 				return err
@@ -105,7 +111,14 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 		return err
 	}
 
-	return untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, r.Hash), r.IsFile)
+	err = untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, r.Hash), r.IsFile)
+	if err != nil && !r.IsFile && !overlay {
+		// Best-effort cleanup: drop the dst dir we just created when extraction
+		// produced nothing (e.g. subdir not found). os.Remove only succeeds on
+		// an empty dir, so a partial extraction is left in place.
+		os.Remove(dst)
+	}
+	return err
 }
 
 func (r *Repo) download(dst string, hash string, verbose bool) error {
