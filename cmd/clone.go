@@ -29,15 +29,8 @@ var cloneCmd = &cobra.Command{
 
 		dst := resolveDestination(repo, args, flat)
 
-		// In flat mode we deliberately overlay onto an existing dir, so the
-		// dst-exists guard is skipped.
-		if stat, err := os.Stat(dst); err == nil && !flat {
-			if !Force {
-				return fmt.Errorf("destination `%s` already exists, use --force to overwrite", dst)
-			}
-			if repo.IsFile && stat.IsDir() {
-				return fmt.Errorf("destination `%s` is a directory; refusing to overwrite with a file", dst)
-			}
+		if err := destinationConflict(dst, flat, Force, repo.IsFile); err != nil {
+			return err
 		}
 
 		if Verbose {
@@ -79,7 +72,7 @@ var cloneCmd = &cobra.Command{
 		if len(entries) == 0 && !Quiet {
 			fmt.Fprintln(
 				os.Stderr,
-				"Output directory is empty, you might have specified an non-existing subfolder in the repository",
+				"Output directory is empty: the repository (or subdirectory) contained no files",
 			)
 		}
 		return nil
@@ -94,22 +87,54 @@ var cloneCmd = &cobra.Command{
 //   - dst is anything else    -> dst is the literal target (rename)
 //
 // base is the file's name (file mode), the last segment of the subdir, or the
-// repository name (folder mode, no subdir). In --flat folder mode the
-// existing-dir rule is skipped so contents land directly in dst.
+// repository name (folder mode, no subdir). In --flat folder mode the named
+// base is never used: contents land directly in dst (or the cwd when dst is
+// omitted).
 func resolveDestination(repo *degit.Repo, args []string, flat bool) string {
-	base := destinationBase(repo)
-
 	if len(args) >= 2 {
 		dst := args[1]
 		if !flat {
 			if stat, err := os.Stat(dst); err == nil && stat.IsDir() {
-				return filepath.Join(dst, base)
+				return filepath.Join(dst, destinationBase(repo))
 			}
 		}
 		return dst
 	}
 
-	return base
+	if flat {
+		return "."
+	}
+	return destinationBase(repo)
+}
+
+// destinationConflict reports whether an already-existing dst blocks the clone.
+// It runs before any download so the CLI can fail fast with a clear message:
+//
+//   - non-flat, no --force: refuse (dst already exists)
+//   - non-flat, --force: allowed, except a file target onto an existing dir
+//   - flat, no --force: allowed only if dst is a directory (we overlay into it)
+//   - flat, --force: allowed (--force wins; Repo.Clone wipes then extracts)
+//
+// A missing dst (or an unreadable one) is not a conflict here; Repo.Clone makes
+// the final decision.
+func destinationConflict(dst string, flat, force, isFile bool) error {
+	stat, err := os.Stat(dst)
+	if err != nil {
+		return nil
+	}
+	switch {
+	case flat && !force:
+		if !stat.IsDir() {
+			return fmt.Errorf("destination `%s` already exists and is not a directory", dst)
+		}
+	case force:
+		if isFile && stat.IsDir() {
+			return fmt.Errorf("destination `%s` is a directory; refusing to overwrite with a file", dst)
+		}
+	default:
+		return fmt.Errorf("destination `%s` already exists, use --force to overwrite", dst)
+	}
+	return nil
 }
 
 // destinationBase is the name the download lands under when dst is omitted or

@@ -62,21 +62,29 @@ func (r *Repo) Resolve() error {
 
 // Clone downloads the repository into the destination
 func (r *Repo) Clone(dst string, force bool, verbose bool) error {
-	// In flat folder mode we overlay onto an existing dst rather than refusing
-	// or wiping it, so the dst-exists guard (and the --force RemoveAll) is
-	// skipped. File mode is never flat.
+	// In flat folder mode we overlay contents onto an existing dst rather than
+	// refusing it — but --force still wins (wipe then extract), and the target
+	// must be a directory. File mode is never flat. `merge` is the only path
+	// that keeps an existing dst in place.
 	overlay := r.Flat && !r.IsFile
+	merge := overlay && !force
 
-	dstExists, err := exists(dst)
-	if err != nil {
-		return err
+	info, statErr := os.Stat(dst)
+	dstExists := statErr == nil
+	if statErr != nil && !os.IsNotExist(statErr) {
+		return statErr
 	}
-	if dstExists && !overlay {
-		if force {
+	if dstExists {
+		switch {
+		case merge:
+			if !info.IsDir() {
+				return fmt.Errorf("output location %s already exists and is not a directory", dst)
+			}
+		case force:
 			if err := os.RemoveAll(dst); err != nil {
 				return err
 			}
-		} else {
+		default:
 			return fmt.Errorf("output location %s already exists", dst)
 		}
 	}
@@ -102,6 +110,7 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 		return err
 	}
 
+	var err error
 	if r.IsFile {
 		err = os.MkdirAll(filepath.Dir(dst), os.ModePerm)
 	} else {
@@ -112,10 +121,11 @@ func (r *Repo) Clone(dst string, force bool, verbose bool) error {
 	}
 
 	err = untar(file, dst, r.Subdir, fmt.Sprintf("%s-%s", r.Name, r.Hash), r.IsFile)
-	if err != nil && !r.IsFile && !overlay {
+	if err != nil && !r.IsFile && !merge {
 		// Best-effort cleanup: drop the dst dir we just created when extraction
 		// produced nothing (e.g. subdir not found). os.Remove only succeeds on
-		// an empty dir, so a partial extraction is left in place.
+		// an empty dir, so a partial extraction is left in place. Skipped for a
+		// merge, where dst is the user's pre-existing directory.
 		os.Remove(dst)
 	}
 	return err

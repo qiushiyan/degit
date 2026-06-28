@@ -78,7 +78,9 @@ func untar(file, dst, subdir, prefix string, isFile bool) error {
 			return out.Close()
 		}
 
-		if header.Typeflag == tar.TypeDir {
+		// Only collected to build a suggestion if subdir turns out to be
+		// missing; skip once we've matched, and entirely for whole-repo clones.
+		if subdir != "" && !matched && header.Typeflag == tar.TypeDir {
 			dirs = append(dirs, header.Name)
 		}
 

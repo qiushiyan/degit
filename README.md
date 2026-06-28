@@ -38,11 +38,13 @@ degit https://github.com/mattpocock/skills/blob/main/skills/productivity/grill-m
 ```
 
 Use `--flat` to dump a folder's contents directly into the destination instead
-of creating a named subfolder. It overlays onto an existing directory without
-deleting what's already there:
+of creating a named subfolder. It merges into an existing directory without
+deleting what's already there (add `--force` to wipe it first); with no
+destination it dumps into the current directory:
 
 ```bash
 degit --flat user/repo/sub ~/code/my-app   # contents land in ~/code/my-app/
+degit --flat user/repo/sub                 # contents land in ./
 ```
 
 If a subdirectory doesn't exist in the repo, degit fails loudly and suggests the
