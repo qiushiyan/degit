@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"slices"
 
 	"github.com/qiushiyan/degit/cmd"
 )
@@ -9,10 +10,8 @@ import (
 func setDefaultCommandIfNonePresent() {
 	if len(os.Args) > 1 && os.Args[1] != "--help" && os.Args[1] != "-h" {
 		potentialCommand := os.Args[1]
-		for _, command := range cmd.Subcommands() {
-			if command == potentialCommand {
-				return
-			}
+		if slices.Contains(cmd.Subcommands(), potentialCommand) {
+			return
 		}
 		os.Args = append([]string{os.Args[0], "clone"}, os.Args[1:]...)
 	}
