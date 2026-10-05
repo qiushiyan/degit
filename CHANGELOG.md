@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/qiushiyan/degit/compare/v0.1.1...v0.2.0) (2026-10-05)
+
+
+### Features
+
+* cp-like destination semantics, --flat, and hard error on missing subdir ([083b28b](https://github.com/qiushiyan/degit/commit/083b28b349e7759d2a9e73d95695b650d40ac75c))
+
+
+### Bug Fixes
+
+* harden --flat edge cases and refresh stale messaging ([841e3ec](https://github.com/qiushiyan/degit/commit/841e3ec651b9eb9cca05ce1759366a2e37b08232))
+
 ## [0.1.1](https://github.com/qiushiyan/degit/compare/v0.1.0...v0.1.1) (2026-05-25)
 
 
